@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Set document encoding and viewport for responsive design -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Page title -->
+    <title>BFS</title>
+
+    <!-- Import vis-network library for interactive graph visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <!-- Internal CSS styles -->
+    <style>
+        /* Base page styling */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        /* Header section styling */
+        header {
+            background-color: #1f2937;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* Flex container to split screen horizontally */
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            height: calc(100vh - 120px); /* Full height minus header and footer */
+        }
+
+        /* Left input panel styling */
+        .input-panel {
+            flex: 1;
+            padding: 40px 20px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Input form styling */
+        form {
+            width: 90%;
+            max-width: 500px;
+            background-color: #fdfdfd;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Label styling */
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
+        }
+
+        /* Input fields and textarea styling */
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        /* Container for buttons */
+        .btn-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Button styling */
+        input[type="submit"], .reset-btn {
+            width: 48%;
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Submit button color */
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        /* Reset button color */
+        .reset-btn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        /* Right output panel styling */
+        .output-panel {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: #f0f4f8;
+        }
+
+        /* Result boxes styling */
+        pre {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.05);
+            white-space: pre-wrap;
+        }
+
+        /* Interactive graph container */
+        #network {
+            width: 100%;
+            height: 400px;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        /* Footer styling */
+        footer {
+            background-color: #1f2937;
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+
+    <!-- JavaScript functionality -->
+    <script>
+        // Validate form input to ensure both graph and start node are filled
+        function validateForm() {
+            const graphData = document.getElementById('graph_data').value.trim();
+            const startNode = document.getElementById('start_node').value.trim();
+            if (!graphData || !startNode) {
+                alert("Please enter both graph data and a start node.");
+                return false;
+            }
+            return true;
+        }
+
+        // Send POST request to /reset endpoint and reload page to clear state
+        function resetGraph() {
+            fetch('/reset', { method: 'POST' })
+                .then(() => location.reload());
+        }
+
+        // Use vis-network to draw interactive graph from JSON
+        function drawVisGraph(graph, levels) {
+            const nodes = new Set();
+            const edges = [];
+
+            // Parse graph structure
+            for (const [u, neighbors] of Object.entries(graph)) {
+                nodes.add(u);
+                neighbors.forEach(v => {
+                    nodes.add(v);
+                    edges.push({ from: u, to: v });
+                });
+            }
+
+            // Define node and edge data
+            const data = {
+                nodes: Array.from(nodes).map(id => ({ id, label: id, font: { size: 18, color: '#000' } })),
+                edges: edges
+            };
+
+            // Visualization options
+            const options = {
+                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "directed" } },
+                physics: false,
+                nodes: {
+                    shape: 'circle',
+                    size: 20,
+                    color: '#4CAF50'
+                },
+                edges: {
+                    color: { color: '#888' },
+                    arrows: { to: { enabled: true } },
+                    smooth: true
+                }
+            };
+
+            // Render graph into container
+            const container = document.getElementById('network');
+            new vis.Network(container, data, options);
+        }
+
+        // Auto-draw graph when DOM loads and graph exists
+        document.addEventListener('DOMContentLoaded', () => {
+            const graphData = {{ graph|tojson }};
+            const levelsData = {{ bfs_levels|tojson }};
+            if (Object.keys(graphData).length > 0) {
+                drawVisGraph(graphData, levelsData);
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <!-- Page header -->
+    <header>
+        <h1>Breadth-First Search (BFS) Visualizer</h1>
+        <h2>Advanced Data Structure and Algorithm</h2>
+        <h3>Assignment</h3>
+    </header>
+
+    <!-- Main split container -->
+    <div class="main-container">
+
+        <!-- Left: input panel -->
+        <div class="input-panel">
+            <form method="POST" action="/submit" onsubmit="return validateForm()">
+                <label for="graph_data"> Usage (Input Format: node: neighbor1 neighbor2 ...)</label>
+                <textarea id="graph_data" name="graph_data" rows="8" required></textarea>
+
+                <label for="start_node">Input Start Node</label>
+                <input type="text" id="start_node" name="start_node" required>
+
+                <div class="btn-row">
+                    <input type="submit" value="Run">
+                    <button type="button" class="reset-btn" onclick="resetGraph()">Reset</button>
+                </div>
+
+                <!-- Show parsed adjacency list below form -->
+                <h3>Vertex Assignment List</h3>
+                <pre id="graph">{{ graph }}</pre>
+            </form>
+        </div>
+
+        <!-- Right: output panel -->
+        <div class="output-panel">
+            <h3>BFS Traversal Order</h3>
+            <pre id="bfs_result">{{ bfs_result }}</pre>
+
+            <h3>BFS Levels</h3>
+            <pre id="bfs_levels">
+{% for level in bfs_levels.values()|sort %}
+Level {{ level }}: {% for node, l in bfs_levels.items() if l == level %}{{ node }} {% endfor %}
+{% endfor %}
+            </pre>
+
+            <h3>Graph Representation</h3>
+            <div id="network"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        &copy; 2025 PHD25CMP0001
+    </footer>
+</body>
+</html>
+
+<!-- Reference:
+Thinkxacademy. (2021, April 5). Breadth First Search (BFS) in Python | Graph Theory | Data Structures in Python [Video]. YouTube. https://www.youtube.com/watch?v=tswq532WVF4
+-->
